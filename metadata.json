@@ -1,0 +1,6 @@
+{
+  "name": "NovaMart - Modern E-Commerce & AI Customer Support",
+  "description": "Clean, modern NovaMart e-commerce storefront with products catalog, interactive Nova AI support agent, customer reviews, order history tracking, and user profile management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

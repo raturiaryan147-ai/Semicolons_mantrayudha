@@ -1,0 +1,133 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default-deny all unmatched paths)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'raturiaryan147@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 1. User Profiles
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isOwner(userId)
+                    && incoming().keys().hasAll(['uid', 'email', 'displayName'])
+                    && incoming().uid == request.auth.uid;
+      allow update: if isValidId(userId) && (isOwner(userId) || isAdmin())
+                    && incoming().uid == existing().uid;
+      allow delete: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
+      // User Addresses Subcollection
+      match /addresses/{addressId} {
+        allow read, write: if isValidId(userId) && isValidId(addressId) && (isOwner(userId) || isAdmin());
+      }
+
+      // User Wishlist Subcollection
+      match /wishlist/{productId} {
+        allow read, write: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      }
+
+      // User AI Support Chat Messages Subcollection
+      match /chat_messages/{messageId} {
+        allow read, write: if isValidId(userId) && isValidId(messageId) && (isOwner(userId) || isAdmin());
+      }
+    }
+
+    // 2. Products Catalog (Readable by all, writable by admins/managers)
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create, update, delete: if isSignedIn() && (
+        isAdmin() || request.auth.token.email == 'raturiaryan147@gmail.com'
+      );
+    }
+
+    // 3. Orders (Readable and creatable by purchasing customer)
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isValidId(orderId) && isSignedIn()
+                    && incoming().userId == request.auth.uid
+                    && incoming().keys().hasAll(['id', 'userId', 'status', 'total', 'items']);
+      allow update: if isValidId(orderId) && isSignedIn()
+                    && (resource.data.userId == request.auth.uid || isAdmin())
+                    && incoming().userId == existing().userId;
+      allow delete: if isAdmin();
+    }
+
+    // 4. Customer Product Reviews
+    match /reviews/{reviewId} {
+      allow get: if isValidId(reviewId);
+      allow list: if true;
+      allow create: if isValidId(reviewId) && isSignedIn()
+                    && incoming().userId == request.auth.uid
+                    && incoming().keys().hasAll(['productId', 'userName', 'rating', 'comment'])
+                    && incoming().rating >= 1 && incoming().rating <= 5;
+      allow update: if isValidId(reviewId) && isSignedIn() && (
+        (resource.data.userId == request.auth.uid && incoming().userId == existing().userId) ||
+        // Upvoting helpful counter
+        (incoming().diff(existing()).affectedKeys().hasOnly(['helpfulCount']))
+      );
+      allow delete: if isValidId(reviewId) && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    // 5. Support Escalation Tickets
+    match /support_tickets/{ticketId} {
+      allow get: if isValidId(ticketId) && isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isValidId(ticketId) && isSignedIn()
+                    && incoming().userId == request.auth.uid
+                    && incoming().keys().hasAll(['ticketId', 'userId', 'reason', 'priority']);
+      allow update, delete: if isAdmin();
+    }
+
+    // 6. Store Operating Policies (Used by AI Agent policy layer)
+    match /policies/{policyId} {
+      allow get: if isValidId(policyId);
+      allow list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // 7. Returns & Refunds (RMA authorizations)
+    match /returns/{returnId} {
+      allow get: if isValidId(returnId) && isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isValidId(returnId) && isSignedIn()
+                    && incoming().userId == request.auth.uid
+                    && incoming().keys().hasAll(['id', 'orderId', 'userId', 'refundAmount', 'status']);
+      allow update: if isValidId(returnId) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+  }
+}

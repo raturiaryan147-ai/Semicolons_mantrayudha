@@ -1,0 +1,215 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Customer account profile, preferences, and loyalty reward tier",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "Customer email" },
+        "displayName": { "type": "string", "description": "Full name", "maxLength": 100 },
+        "photoURL": { "type": "string", "description": "Avatar URL" },
+        "phoneNumber": { "type": "string", "description": "Phone number", "maxLength": 30 },
+        "membershipTier": { "type": "string", "enum": ["Nova Member", "Nova Gold Member", "Nova Platinum Member"] },
+        "rewardPoints": { "type": "number", "description": "Loyalty points balance" },
+        "memberSince": { "type": "string", "description": "Join date" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp" }
+      },
+      "required": ["uid", "email", "displayName"]
+    },
+    "Address": {
+      "title": "Shipping Address",
+      "description": "Pre-saved customer delivery destination",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Address ID" },
+        "title": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 100 },
+        "street": { "type": "string", "maxLength": 200 },
+        "city": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 50 },
+        "zip": { "type": "string", "maxLength": 20 },
+        "country": { "type": "string", "maxLength": 50 },
+        "isDefault": { "type": "boolean" }
+      },
+      "required": ["name", "street", "city", "state", "zip"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Storefront product catalog item compatible with CSV import",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique product SKU / ID" },
+        "name": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "maxLength": 50 },
+        "price": { "type": "number", "description": "Sale price" },
+        "originalPrice": { "type": "number", "description": "List price" },
+        "rating": { "type": "number", "description": "Average review rating" },
+        "reviewCount": { "type": "number", "description": "Total review count" },
+        "imageKey": { "type": "string", "description": "Visual lookup key" },
+        "imageUrl": { "type": "string", "description": "Direct image URL" },
+        "tag": { "type": "string", "enum": ["NEW", "50% OFF", "BESTSELLER", "LIMITED"] },
+        "description": { "type": "string", "maxLength": 2000 },
+        "features": { "type": "array", "description": "Key bullet points" },
+        "inStock": { "type": "boolean" },
+        "stockCount": { "type": "number" },
+        "colors": { "type": "array" },
+        "sizes": { "type": "array" }
+      },
+      "required": ["id", "name", "category", "price"]
+    },
+    "Order": {
+      "title": "Customer Order",
+      "description": "Order transaction with tracking and receipt details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Order ID, e.g. NM-8492" },
+        "userId": { "type": "string", "description": "Purchaser Auth UID" },
+        "userEmail": { "type": "string", "format": "email" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["Processing", "In Transit", "Out for Delivery", "Delivered", "Cancelled"] },
+        "items": { "type": "array", "description": "Purchased items list" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "shipping": { "type": "number" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "trackingNumber": { "type": "string" },
+        "estimatedDelivery": { "type": "string" },
+        "shippingAddress": { "type": "object" },
+        "timeline": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "status", "total", "items"]
+    },
+    "Review": {
+      "title": "Product Review",
+      "description": "Verified customer feedback and rating",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string", "maxLength": 100 },
+        "rating": { "type": "number" },
+        "title": { "type": "string", "maxLength": 150 },
+        "comment": { "type": "string", "maxLength": 1000 },
+        "date": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "helpfulCount": { "type": "number" }
+      },
+      "required": ["productId", "userName", "rating", "comment"]
+    },
+    "SupportTicket": {
+      "title": "Support Escalation Ticket",
+      "description": "Tier-1 escalated human agent support request",
+      "type": "object",
+      "properties": {
+        "ticketId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "orderId": { "type": "string" },
+        "reason": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High", "Urgent"] },
+        "status": { "type": "string", "enum": ["Pending Assignment", "Open", "Resolved"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["ticketId", "userId", "reason", "priority"]
+    },
+    "Policy": {
+      "title": "Store Policy",
+      "description": "Operating policies for return windows, cancellations, price matches, and SLAs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "policyCode": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 100 },
+        "version": { "type": "string", "maxLength": 20 },
+        "windowDays": { "type": "number" },
+        "summary": { "type": "string", "maxLength": 500 },
+        "rules": { "type": "array" },
+        "exceptions": { "type": "array" }
+      },
+      "required": ["id", "policyCode", "name", "version"]
+    },
+    "ReturnRequest": {
+      "title": "Return Request",
+      "description": "RMA return authorization and digital label details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "userId": { "type": "string" },
+        "status": { "type": "string", "enum": ["Label Generated - Ready to Ship", "In Transit", "Received", "Refunded", "Declined"] },
+        "refundAmount": { "type": "number" },
+        "itemNames": { "type": "array" },
+        "reason": { "type": "string" },
+        "carrier": { "type": "string" },
+        "trackingNumber": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "orderId", "userId", "refundAmount", "status"]
+    },
+    "ChatMessage": {
+      "title": "AI Support Chat Message",
+      "description": "Individual user message and assistant turn with 5-layer reasoning traces",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "sender": { "type": "string", "enum": ["user", "assistant"] },
+        "text": { "type": "string", "maxLength": 5000 },
+        "timestamp": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "reasoningTrace": { "type": "object" },
+        "relatedOrder": { "type": "object" },
+        "relatedProducts": { "type": "array" },
+        "actionType": { "type": "string" }
+      },
+      "required": ["id", "userId", "sender", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Customer profiles restricted to owner and admin"
+    },
+    "/users/{userId}/addresses/{addressId}": {
+      "schema": { "$ref": "#/entities/Address" },
+      "description": "Customer saved shipping destinations"
+    },
+    "/users/{userId}/wishlist/{productId}": {
+      "schema": { "type": "object", "properties": { "productId": { "type": "string" }, "addedAt": { "type": "string" } } },
+      "description": "Customer saved favorite products"
+    },
+    "/users/{userId}/chat_messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Individual user chat conversation history with Nova AI support agent"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Publicly readable product catalog, writable by admin/manager"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Orders readable and writable by the purchasing user"
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Product reviews publicly readable, creatable by authenticated buyers"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/SupportTicket" },
+      "description": "AI agent escalations readable by ticket owner and support agents"
+    },
+    "/policies/{policyId}": {
+      "schema": { "$ref": "#/entities/Policy" },
+      "description": "Store policies used by the Policy layer of Nova AI"
+    },
+    "/returns/{returnId}": {
+      "schema": { "$ref": "#/entities/ReturnRequest" },
+      "description": "RMA return and refund authorizations"
+    }
+  }
+}
