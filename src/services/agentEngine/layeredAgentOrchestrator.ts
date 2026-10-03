@@ -4,28 +4,33 @@ import { PolicyLayer } from './policyLayer';
 import { ToolsLayer } from './toolsLayer';
 import { DecisionLayer } from './decisionLayer';
 import { EnhancedChatMessage, LayeredReasoningTrace } from '../../types/agentReasoning';
+import { GeminiChatService } from '../geminiChatService';
+import { storeService } from '../storeService';
 
 export class LayeredAgentOrchestrator {
-  static async processMessage(userText: string): Promise<EnhancedChatMessage> {
+  static async processMessage(
+    userText: string,
+    conversationHistory: EnhancedChatMessage[] = [],
+    userName?: string
+  ): Promise<EnhancedChatMessage> {
     const raw = userText.trim();
 
-    // 1. LAYER 1: INTENT
-    const { intents, isMultiIntent } = IntentLayer.parse(raw);
+    // 1. LAYER 1: INTENT & COMPLEXITY
+    const { intents, isMultiIntent, taskComplexity } = IntentLayer.parse(raw);
 
     // 2. LAYER 2: MEMORY
     const explicitOrderId = intents.find(i => i.extractedEntities?.orderId)?.extractedEntities.orderId;
     const memoryContext = MemoryLayer.retrieveContext(explicitOrderId);
     const resolvedOrderId = memoryContext.resolvedOrderId;
 
-    // 3. LAYER 4 PREVIEW / TOOLS EXECUTION:
-    // Execute verified tools with validated parameters
+    // 3. LAYER 4: TOOLS EXECUTION
     const toolsResult = ToolsLayer.executeTools(intents, resolvedOrderId);
     const targetOrder = toolsResult.retrievedOrder;
 
-    // 4. LAYER 3: POLICY
+    // 4. LAYER 3: POLICY EVALUATION
     const policyResult = PolicyLayer.evaluate(intents, targetOrder);
 
-    // 5. LAYER 5: DECISION
+    // 5. LAYER 5: DECISION ENGINE (Ground-truth & Fallback Generator)
     const decisionResult = DecisionLayer.decide(
       intents,
       policyResult,
@@ -33,8 +38,42 @@ export class LayeredAgentOrchestrator {
       targetOrder,
       toolsResult.retrievedProducts,
       toolsResult.returnReceipt,
-      toolsResult.escalationTicket
+      toolsResult.escalationTicket,
+      raw,
+      {
+        orderLookupFailed: toolsResult.orderLookupFailed,
+        missingOrderId: toolsResult.missingOrderId
+      }
     );
+
+    // 6. MULTI-TURN GEMINI SYNTHESIS (Natural, Human & Policy-Grounded)
+    let finalResponseText = decisionResult.responseText;
+    let modelUsed: string | undefined;
+
+    try {
+      const historyTurns = conversationHistory.slice(-8).map(msg => ({
+        role: msg.sender === 'user' ? ('user' as const) : ('model' as const),
+        text: msg.text,
+      }));
+
+      const geminiResponse = await GeminiChatService.sendMessage(raw, historyTurns, {
+        userName,
+        targetOrder,
+        verifiedOrders: storeService.getOrders(),
+        verifiedProducts: toolsResult.retrievedProducts,
+        activePolicies: policyResult,
+        returnReceipt: toolsResult.returnReceipt,
+        escalationTicket: toolsResult.escalationTicket,
+        taskComplexity,
+      });
+
+      if (geminiResponse && geminiResponse.text.trim()) {
+        finalResponseText = geminiResponse.text.trim();
+        modelUsed = geminiResponse.modelUsed;
+      }
+    } catch (e) {
+      // Deterministic decisionResult fallback is used if server call is unreachable
+    }
 
     // Construct the complete Layered Reasoning Trace
     const reasoningTrace: LayeredReasoningTrace = {
@@ -54,7 +93,9 @@ export class LayeredAgentOrchestrator {
       },
       decisionLayer: {
         decision: decisionResult.decision,
-        rationale: decisionResult.rationale,
+        rationale: modelUsed 
+          ? `${decisionResult.rationale} [Synthesized via ${modelUsed}]`
+          : decisionResult.rationale,
         confidence: decisionResult.confidence,
         nextStep: decisionResult.nextStep
       }
@@ -64,7 +105,7 @@ export class LayeredAgentOrchestrator {
     return {
       id: `asst-${Date.now()}`,
       sender: 'assistant',
-      text: decisionResult.responseText,
+      text: finalResponseText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       reasoningTrace,
       relatedOrder: targetOrder,
@@ -77,7 +118,9 @@ export class LayeredAgentOrchestrator {
         ? 'view_order' 
         : undefined,
       escalationTicket: toolsResult.escalationTicket,
-      returnReceipt: toolsResult.returnReceipt
+      returnReceipt: toolsResult.returnReceipt,
+      interactiveChips: decisionResult.interactiveChips,
+      suggestedFollowUps: decisionResult.suggestedFollowUps
     };
   }
 }

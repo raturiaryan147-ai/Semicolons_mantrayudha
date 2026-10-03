@@ -46,7 +46,9 @@ export class ChatPersistenceService {
         relatedProducts: message.relatedProducts || null,
         actionType: message.actionType || null,
         escalationTicket: message.escalationTicket || null,
-        returnReceipt: message.returnReceipt || null
+        returnReceipt: message.returnReceipt || null,
+        interactiveChips: message.interactiveChips || null,
+        suggestedFollowUps: message.suggestedFollowUps || null
       });
 
       await setDoc(docRef, payload, { merge: true });
@@ -81,9 +83,12 @@ export class ChatPersistenceService {
           relatedProducts: data.relatedProducts || undefined,
           actionType: data.actionType || undefined,
           escalationTicket: data.escalationTicket || undefined,
-          returnReceipt: data.returnReceipt || undefined
+          returnReceipt: data.returnReceipt || undefined,
+          interactiveChips: data.interactiveChips || undefined,
+          suggestedFollowUps: data.suggestedFollowUps || undefined
         });
       });
+
 
       return messages;
     } catch (error) {

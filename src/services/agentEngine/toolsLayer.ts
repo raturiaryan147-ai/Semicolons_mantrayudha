@@ -12,39 +12,61 @@ export class ToolsLayer {
     retrievedProducts?: Product[];
     returnReceipt?: any;
     escalationTicket?: any;
+    orderLookupFailed?: boolean;
+    missingOrderId?: boolean;
   } {
     const toolsCalled: ToolCallTrace[] = [];
     let retrievedOrder: Order | undefined;
     let retrievedProducts: Product[] | undefined;
     let returnReceipt: any;
     let escalationTicket: any;
+    let orderLookupFailed = false;
+    let missingOrderId = false;
 
     const allOrders = storeService.getOrders();
     const allProducts = storeService.getProducts();
 
-    // Tool 1: Order Fetch (Only called if tracking, returning, or cancelling an order)
+    // 1. Order Fetch Tool
     const needsOrder = intents.some(i => ['TRACK_ORDER', 'RETURN_REFUND_REQUEST', 'CANCEL_ORDER'].includes(i.type));
     if (needsOrder) {
       if (orderId) {
-        retrievedOrder = allOrders.find(o => o.id.toUpperCase() === orderId.toUpperCase() || o.id.replace('-', '') === orderId.replace('-', ''));
-      }
-      if (!retrievedOrder) {
-        // Fall back to most recent order if unstated
-        retrievedOrder = allOrders.find(o => o.status !== 'Delivered') || allOrders[0];
-      }
+        const cleanId = orderId.toUpperCase().replace(/\s+/g, '');
+        retrievedOrder = allOrders.find(
+          o => o.id.toUpperCase() === cleanId || o.id.replace('-', '').toUpperCase() === cleanId.replace('-', '')
+        );
 
-      toolsCalled.push({
-        toolName: 'storeService.fetchOrderDetails',
-        parameters: { orderId: retrievedOrder?.id || orderId || 'LATEST' },
-        executionStatus: retrievedOrder ? 'success' : 'failed',
-        resultSummary: retrievedOrder 
-          ? `Found Order #${retrievedOrder.id} (${retrievedOrder.status}) with ${retrievedOrder.items.length} items, total $${retrievedOrder.total.toFixed(2)}.`
-          : `Order lookup failed for query "${orderId}".`,
-        dataPayload: retrievedOrder
-      });
+        if (retrievedOrder) {
+          toolsCalled.push({
+            toolName: 'database.verifyOrderRecord',
+            parameters: { orderId: retrievedOrder.id },
+            executionStatus: 'success',
+            resultSummary: `Verified Order #${retrievedOrder.id} in system: Status ${retrievedOrder.status}, ${retrievedOrder.items.length} items, total $${retrievedOrder.total.toFixed(2)}.`,
+            dataPayload: retrievedOrder
+          });
+        } else {
+          orderLookupFailed = true;
+          toolsCalled.push({
+            toolName: 'database.verifyOrderRecord',
+            parameters: { orderId },
+            executionStatus: 'failed',
+            resultSummary: `Order lookup returned zero records for ID "${orderId}".`,
+            dataPayload: null
+          });
+        }
+      } else {
+        // Essential information missing: customer did not provide order ID
+        missingOrderId = true;
+        toolsCalled.push({
+          toolName: 'database.verifyOrderRecord',
+          parameters: { query: 'unspecified_order_id' },
+          executionStatus: 'skipped',
+          resultSummary: 'Order ID not provided in request. Clarification required.',
+          dataPayload: null
+        });
+      }
     }
 
-    // Tool 2: Initiate Return (Only called if eligible return request with order)
+    // 2. Return Authorization Tool (Strict Verification: Order must exist and be Delivered)
     const hasReturn = intents.some(i => i.type === 'RETURN_REFUND_REQUEST');
     if (hasReturn && retrievedOrder && retrievedOrder.status === 'Delivered') {
       const returnId = `RET-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -54,29 +76,28 @@ export class ToolsLayer {
         itemNames: retrievedOrder.items.map(i => i.productName),
         refundAmount: retrievedOrder.total,
         status: 'Label Generated - Ready to Ship' as const,
-        refundMethod: `Original instrument: ${retrievedOrder.paymentMethod}`,
-        dropoffCarrier: 'USPS Priority or FedEx Drop Box (Prepaid)'
+        refundMethod: `Reversal to ${retrievedOrder.paymentMethod}`,
+        dropoffCarrier: 'USPS Priority or FedEx Ground (Prepaid)'
       };
 
       toolsCalled.push({
-        toolName: 'logisticsService.generatePrepaidReturnLabel',
+        toolName: 'logistics.issueReturnLabel',
         parameters: {
           orderId: retrievedOrder.id,
-          itemsCount: retrievedOrder.items.length,
           refundAmount: retrievedOrder.total,
-          carrier: 'FedEx / USPS'
+          carrier: 'FedEx / USPS Prepaid'
         },
         executionStatus: 'success',
-        resultSummary: `Generated prepaid return QR & label #${returnId}. Estimated refund: $${retrievedOrder.total.toFixed(2)} within 48h of scan.`,
+        resultSummary: `Generated prepaid return RMA #${returnId} for $${retrievedOrder.total.toFixed(2)}.`,
         dataPayload: returnReceipt
       });
     }
 
-    // Tool 3: Product Catalog Search (Only called if product inquiry or discovery)
+    // 3. Product Catalog Query Tool
     const productIntent = intents.find(i => i.type === 'PRODUCT_INQUIRY' || i.type === 'PROMO_DISCOUNT');
     if (productIntent) {
-      const cat = productIntent.extractedEntities.category;
-      const budget = productIntent.extractedEntities.maxBudget;
+      const cat = productIntent.extractedEntities?.category;
+      const budget = productIntent.extractedEntities?.maxBudget;
 
       let matched = allProducts;
       if (cat) {
@@ -89,15 +110,15 @@ export class ToolsLayer {
       retrievedProducts = matched.slice(0, 3);
 
       toolsCalled.push({
-        toolName: 'catalogService.queryProducts',
-        parameters: { category: cat || 'ALL', maxBudget: budget || 'UNRESTRICTED' },
+        toolName: 'inventory.queryVerifiedCatalog',
+        parameters: { category: cat || 'ALL', maxBudget: budget || 'NONE' },
         executionStatus: 'success',
-        resultSummary: `Retrieved ${retrievedProducts.length} verified products matching criteria from warehouse inventory.`,
+        resultSummary: `Retrieved ${retrievedProducts.length} verified in-stock items.`,
         dataPayload: retrievedProducts
       });
     }
 
-    // Tool 4: Escalate to Human Support Ticket (Only called if escalation intent)
+    // 4. Escalation Tool (For human handover or sensitive cases)
     const hasEscalate = intents.some(i => i.type === 'ESCALATE_HUMAN');
     if (hasEscalate) {
       const ticketId = `TKT-${Math.floor(20000 + Math.random() * 80000)}`;
@@ -105,20 +126,15 @@ export class ToolsLayer {
         ticketId,
         status: 'Pending Assignment' as const,
         priority: 'High' as const,
-        assignedTeam: 'Priority Tier-1 Support Concierge',
-        estimatedWaitTime: '< 2 minutes'
+        assignedTeam: 'Tier-1 Customer Support Specialist',
+        estimatedWaitTime: 'Under 2 minutes'
       };
 
       toolsCalled.push({
-        toolName: 'crmService.createEscalationTicket',
-        parameters: {
-          ticketId,
-          priority: 'High',
-          orderId: retrievedOrder?.id,
-          channel: 'Live Support Handover'
-        },
+        toolName: 'support.createEscalationTicket',
+        parameters: { ticketId, priority: 'High' },
         executionStatus: 'success',
-        resultSummary: `Dispatched high-priority customer support ticket #${ticketId} to Tier-1 Concierge.`,
+        resultSummary: `Created ticket #${ticketId} and queued for human specialist.`,
         dataPayload: escalationTicket
       });
     }
@@ -128,7 +144,9 @@ export class ToolsLayer {
       retrievedOrder,
       retrievedProducts,
       returnReceipt,
-      escalationTicket
+      escalationTicket,
+      orderLookupFailed,
+      missingOrderId
     };
   }
 }

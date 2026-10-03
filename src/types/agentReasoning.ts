@@ -21,6 +21,7 @@ export interface ParsedIntent {
     maxBudget?: number;
     returnReason?: string;
     actionRequired?: string;
+    specificQuery?: string;
   };
   summary: string;
 }
@@ -79,6 +80,13 @@ export interface LayeredReasoningTrace {
   };
 }
 
+export interface InteractiveActionChip {
+  label: string;
+  action: 'send_prompt' | 'view_order' | 'view_product' | 'add_to_cart' | 'apply_coupon';
+  payload?: any;
+  variant?: 'primary' | 'secondary' | 'accent' | 'danger';
+}
+
 export interface EnhancedChatMessage {
   id: string;
   sender: 'user' | 'assistant';
@@ -88,6 +96,8 @@ export interface EnhancedChatMessage {
   relatedOrder?: Order;
   relatedProducts?: Product[];
   actionType?: 'view_order' | 'view_product' | 'return_policy' | 'discount_info' | 'return_initiated' | 'escalation_ticket';
+  interactiveChips?: InteractiveActionChip[];
+  suggestedFollowUps?: string[];
   escalationTicket?: {
     ticketId: string;
     status: 'Pending Assignment' | 'Transferred';

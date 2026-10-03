@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, ShoppingBag, Heart, User, Bot, Sparkles, X, Upload, LogIn, LogOut } from 'lucide-react';
+import { Search, ShoppingBag, Heart, User, Bot, Sparkles, X, LogIn, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
@@ -9,11 +9,11 @@ interface NavbarProps {
   wishlistCount: number;
   onOpenCart: () => void;
   onOpenAiSupport: () => void;
-  onOpenCsvImport?: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onSelectCategory?: (category: string) => void;
 }
+
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
@@ -22,7 +22,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   wishlistCount,
   onOpenCart,
   onOpenAiSupport,
-  onOpenCsvImport,
   searchQuery,
   setSearchQuery,
   onSelectCategory
@@ -45,17 +44,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </div>
           <div className="flex items-center gap-4 text-[11px]">
-            {onOpenCsvImport && (
-              <button
-                onClick={onOpenCsvImport}
-                className="text-stone-300 hover:text-white flex items-center gap-1 cursor-pointer"
-                title="Upload products via CSV"
-              >
-                <Upload className="w-3.5 h-3.5 text-[#FF8149]" />
-                <span className="hidden sm:inline">Import CSV</span>
-              </button>
-            )}
-            <span className="text-emerald-400/40">|</span>
             <button
               onClick={() => setActiveTab('orders')}
               className="text-stone-300 hover:text-white transition-colors cursor-pointer"
@@ -73,6 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
+
 
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -205,23 +194,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Action Zone: CSV Import, AI Support, Auth / Profile, Wishlist, Cart */}
+          {/* Action Zone: AI Support, Auth / Profile, Wishlist, Cart */}
           <div className="flex items-center gap-2 sm:gap-3">
             
-            {/* CSV Import Button */}
-            {onOpenCsvImport && (
-              <button
-                onClick={onOpenCsvImport}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold transition-colors cursor-pointer"
-                title="Import catalog via CSV"
-              >
-                <Upload className="w-3.5 h-3.5 text-[#FF5B26]" />
-                <span className="hidden xl:inline">Import CSV</span>
-              </button>
-            )}
-
             {/* Nova AI Quick Launcher in Header */}
             <button
+
               onClick={onOpenAiSupport}
               className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#0B3B2C] text-xs font-semibold border border-emerald-200 transition-colors cursor-pointer group"
               title="Open Nova AI Customer Support"

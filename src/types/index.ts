@@ -1,18 +1,52 @@
+export type ProductCategory =
+  | 'All'
+  | 'Accessories'
+  | 'Cameras'
+  | 'Earbuds'
+  | 'Gaming'
+  | 'Headphones'
+  | 'Keyboards'
+  | 'Laptops'
+  | 'Mice'
+  | 'Monitors'
+  | 'Networking'
+  | 'Smartphones'
+  | 'Smartwatches'
+  | 'Speakers'
+  | 'Tablets'
+  | 'Electronics'
+  | 'Women'
+  | 'Men'
+  | 'Home & Living'
+  | 'Beauty'
+  | string;
+
 export interface Product {
   id: string;
+  sku?: string;
   name: string;
-  category: 'Women' | 'Men' | 'Home & Living' | 'Beauty' | 'Electronics';
+  category: ProductCategory;
+  subcategory?: string;
+  brand?: string;
   price: number;
   originalPrice?: number;
+  mrp?: number;
+  discountPercent?: number;
   rating: number;
   reviewCount: number;
   imageKey: string;
   imageUrl?: string;
-  tag?: 'NEW' | '50% OFF' | 'BESTSELLER' | 'LIMITED';
+  tag?: 'NEW' | '50% OFF' | 'BESTSELLER' | 'LIMITED' | string;
   description: string;
   features: string[];
   inStock: boolean;
   stockCount: number;
+  warrantyMonths?: number;
+  returnable?: boolean;
+  replacementAvailable?: boolean;
+  weightKg?: number;
+  color?: string;
+  status?: 'active' | 'out_of_stock' | 'discontinued';
   colors?: { name: string; hex: string }[];
   sizes?: string[];
   updatedAt?: string;

@@ -207,6 +207,51 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                     ))}
                   </div>
 
+                  {/* Technical Specifications Grid */}
+                  <div className="mt-4 pt-4 border-t border-stone-100">
+                    <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider mb-2.5">
+                      Technical Specifications & Coverage
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {product.brand && (
+                        <div className="p-2 bg-stone-50 rounded-xl">
+                          <span className="text-[10px] text-stone-400 block font-semibold">Brand</span>
+                          <span className="font-bold text-stone-800">{product.brand}</span>
+                        </div>
+                      )}
+                      {product.sku && (
+                        <div className="p-2 bg-stone-50 rounded-xl">
+                          <span className="text-[10px] text-stone-400 block font-semibold">SKU / Model</span>
+                          <span className="font-mono font-bold text-stone-800 truncate block">{product.sku}</span>
+                        </div>
+                      )}
+                      {product.warrantyMonths && (
+                        <div className="p-2 bg-stone-50 rounded-xl">
+                          <span className="text-[10px] text-stone-400 block font-semibold">Warranty</span>
+                          <span className="font-bold text-emerald-800">{product.warrantyMonths} Months Manufacturer</span>
+                        </div>
+                      )}
+                      <div className="p-2 bg-stone-50 rounded-xl">
+                        <span className="text-[10px] text-stone-400 block font-semibold">Return Policy</span>
+                        <span className="font-bold text-stone-800">
+                          {product.returnable !== false ? '30-Day Hassle-Free Returns' : 'Standard Policy'}
+                        </span>
+                      </div>
+                      {product.weightKg && (
+                        <div className="p-2 bg-stone-50 rounded-xl">
+                          <span className="text-[10px] text-stone-400 block font-semibold">Weight</span>
+                          <span className="font-bold text-stone-800">{product.weightKg} kg</span>
+                        </div>
+                      )}
+                      {product.color && (
+                        <div className="p-2 bg-stone-50 rounded-xl">
+                          <span className="text-[10px] text-stone-400 block font-semibold">Colorway</span>
+                          <span className="font-bold text-stone-800">{product.color}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Color Selector */}
                   {product.colors && product.colors.length > 0 && (
                     <div className="pt-2">

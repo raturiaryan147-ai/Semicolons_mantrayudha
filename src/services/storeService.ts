@@ -1,17 +1,32 @@
 import { Product, Review, Order, UserProfile, UserAddress, CartItem } from '../types';
-import { INITIAL_PRODUCTS, INITIAL_REVIEWS, INITIAL_ORDERS, INITIAL_USER_PROFILE } from '../data/mockData';
+import { INITIAL_REVIEWS, INITIAL_ORDERS, INITIAL_USER_PROFILE } from '../data/mockData';
+import { IMPORTED_PRODUCTS } from '../data/importedProducts';
+import { db } from '../firebase';
+import { collection, doc, getDocs, writeBatch } from 'firebase/firestore';
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'novamart_products_v2',
+  PRODUCTS: 'novamart_products_v3_catalog',
   REVIEWS: 'novamart_reviews_v1',
   ORDERS: 'novamart_orders_v1',
   PROFILE: 'novamart_profile_v1',
   WISHLIST: 'novamart_wishlist_v1',
 };
 
+function sanitizeForFirestore<T>(data: T): any {
+  if (data === null || data === undefined) return null;
+  if (Array.isArray(data)) return data.map(item => sanitizeForFirestore(item));
+  if (typeof data === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined) cleaned[k] = sanitizeForFirestore(v);
+    }
+    return cleaned;
+  }
+  return data;
+}
+
 // Architecture check for future Supabase integration
 export const isSupabaseConfigured = (): boolean => {
-  // In a future production phase, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
   return false;
 };
 
@@ -21,15 +36,53 @@ class StoreService {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length >= 50) {
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn('Failed to parse products from storage', e);
     }
-    // Seed initial data
-    this.saveProducts(INITIAL_PRODUCTS);
-    return INITIAL_PRODUCTS;
+    // Seed initial 300 products dataset
+    this.saveProducts(IMPORTED_PRODUCTS);
+    return IMPORTED_PRODUCTS;
   }
+
+  async syncCatalogToFirestore(): Promise<{ success: boolean; count: number }> {
+    try {
+      const batch = writeBatch(db);
+      const prods = this.getProducts();
+      // Batch up to 500 documents (300 products easily fit in 1 batch)
+      prods.forEach(p => {
+        const docRef = doc(db, 'products', p.id);
+        batch.set(docRef, sanitizeForFirestore(p), { merge: true });
+      });
+      await batch.commit();
+      return { success: true, count: prods.length };
+    } catch (error) {
+      console.warn('Failed to batch sync catalog to Firestore:', error);
+      return { success: false, count: 0 };
+    }
+  }
+
+  async loadProductsFromFirestore(): Promise<Product[]> {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'products'));
+      if (!querySnapshot.empty && querySnapshot.size >= 50) {
+        const prods: Product[] = [];
+        querySnapshot.forEach(docSnap => {
+          prods.push(docSnap.data() as Product);
+        });
+        this.saveProducts(prods);
+        return prods;
+      }
+    } catch (e) {
+      console.warn('Could not read products from Firestore:', e);
+    }
+    return this.getProducts();
+  }
+
 
   saveProducts(products: Product[]): void {
     try {

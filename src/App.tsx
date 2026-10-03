@@ -289,11 +289,11 @@ export default function App() {
           setAiInitialPrompt(undefined);
           setIsAiSupportOpen(true);
         }}
-        onOpenCsvImport={() => setIsCsvImportOpen(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onSelectCategory={handleCategoryClick}
       />
+
 
       {/* Main Page Content Body */}
       <main className="flex-1">
